@@ -1,0 +1,16 @@
+[
+  {
+    "id": "cosyvoice-v2-cusfemale-2efcf55598404c3ab5779657ddd4ebcc",
+    "name": "Female Voice",
+    "description": "The device would work during the day as well, if you took steps to either block direct sunlight or point it away from the sun.",
+    "url": "https://169.63.100.185:5100/static/audios/cosyvoice-v2-cusfemale-2efcf55598404c3ab5779657ddd4ebcc.wav",
+    "duration": "00:06"
+  },
+  {
+    "id": "cosyvoice-v2-cusmale-b3a18d5660d243abb1fc12c75ce85747",
+    "name": "Male Voice",
+    "description": "Maintaining your ability to learn translates into increased marketability, improved career options and higher salaries.",
+    "url": "https://169.63.100.185:5100/static/audios/cosyvoice-v2-cusmale-b3a18d5660d243abb1fc12c75ce85747.wav",
+    "duration": "00:07"
+  }
+]

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Human Voice Settings</title>
+  <!-- External resources -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- Tailwind Configuration -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#4080FF',
+            neutral: {
+              100: '#F5F7FA',
+              200: '#E4E7ED',
+              300: '#C0C6CF',
+              400: '#909399',
+              500: '#606266',
+              600: '#303133',
+            }
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            'card': '0 4px 20px 0 rgba(0, 0, 0, 0.08)',
+            'card-hover': '0 8px 30px 0 rgba(22, 93, 255, 0.12)',
+          }
+        },
+      }
+    }
+  </script>
+  
+  <!-- Custom utilities -->
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .sound-card-active {
+        @apply border-primary bg-primary/5;
+      }
+      .transition-all-300 {
+        @apply transition-all duration-300 ease-in-out;
+      }
+    }
+  </style>
+  
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #c0c6cf;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #909399;
+    }
+    
+    /* Audio player styling */
+    audio::-webkit-media-controls-panel {
+      background-color: #f5f7fa;
+      border-radius: 8px;
+    }
+    
+    /* Animation effects */
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .pulse-animation {
+      animation: pulse 1.5s infinite;
+    }
+    
+    /* Ensure clickable area isn't affected */
+    .sound-card {
+      cursor: pointer;
+    }
+    .play-btn-container {
+      pointer-events: auto;
+    }
+  </style>
+</head>
+<body class="font-inter bg-neutral-100 min-h-screen">
+  <!-- Header navigation -->
+  <header class="bg-white shadow-sm sticky top-0 z-50">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-microphone text-primary text-2xl"></i>
+        <h1 class="text-xl font-bold text-neutral-600">Digital Human Voice Settings</h1>
+      </div>
+      <button id="saveBtn" class="bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg transition-all-300 flex items-center space-x-2">
+        <i class="fa fa-save"></i>
+        <span>Save Settings</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main content area -->
+  <main class="container mx-auto px-4 py-8">
+    <!-- Instruction text -->
+    <div class="mb-8 text-neutral-500">
+      <p>Select your preferred digital human voice. Click the play button to preview. Click save settings after selection to apply.</p>
+    </div>
+    
+    <!-- Voice list -->
+    <div id="soundList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <!-- Voice cards will be generated dynamically via JS -->
+      <div class="col-span-full flex justify-center items-center py-12" id="loading">
+        <div class="flex flex-col items-center">
+          <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+          <p class="text-neutral-500">Loading voice list...</p>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer information -->
+  <footer class="bg-white py-6 mt-12">
+    <div class="container mx-auto px-4 text-center text-neutral-400 text-sm">
+      <p>© 2025 OpenAvatarChat Digital Human Chat Project | Voice Settings Module</p>
+    </div>
+  </footer>
+
+  <!-- Success notification popup -->
+  <div id="successToast" class="fixed bottom-6 right-6 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-20 opacity-0 transition-all-300 flex items-center space-x-2 z-50">
+    <i class="fa fa-check-circle"></i>
+    <span>Settings saved successfully!</span>
+  </div>
+
+  <script>
+      // 全局变量（保持不变）
+    let selectedSoundId = null;
+    let audioElements = {};
+    let currentPlayingAudioId = null;
+
+    // 页面加载后执行（保持不变）
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchSoundList(); // 调用修复后的接口请求函数
+      document.getElementById('saveBtn').addEventListener('click', saveSoundSetting);
+    });
+
+    /**
+     * 修复：从真实接口获取声音列表（核心修复）
+     */
+    function fetchSoundList() {
+      const soundListEl = document.getElementById('soundList');
+      const loadingEl = document.getElementById('loading');
+
+      fetch('/api/sound-list')
+        .then(response => {
+          // 第一步：检查HTTP响应状态（200-299为成功）
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json(); // 解析JSON数据
+        })
+        .then(apiResponse => {
+          // 第二步：检查接口返回的success状态
+          if (!apiResponse.success) {
+            throw new Error(apiResponse.error || 'Failed to load voice list');
+          }
+
+          // 第三步：正确获取声音数组（apiResponse.data 才是声音列表）
+          const soundList = apiResponse.data;
+
+          // 移除加载状态
+          loadingEl.remove();
+
+          // 生成声音卡片（正常遍历声音数组）
+          soundList.forEach(sound => {
+            const soundCard = createSoundCard(sound);
+            soundListEl.appendChild(soundCard);
+          });
+
+          // 第四步：获取用户已保存的设置（修复接口格式对接）
+          fetch('/api/user-sound-setting')
+            .then(res => {
+              if (!res.ok) throw new Error('Failed to get user setting');
+              return res.json();
+            })
+            .then(settingResponse => {
+              if (settingResponse.success) {
+                // 注意：这里要保持 id 类型一致（后端返回字符串，前端就用字符串）
+                selectedSoundId = settingResponse.data.soundId; 
+                
+                // 如果有已保存的设置，选中对应的卡片；否则选中第一个
+                if (selectedSoundId) {
+                  selectSoundCard(selectedSoundId);
+                } else if (soundList.length > 0) {
+                  selectedSoundId = soundList[0].id; // 字符串类型的id
+                  selectSoundCard(selectedSoundId);
+                }
+              } else if (soundList.length > 0) {
+                // 接口获取设置失败时，默认选中第一个
+                selectedSoundId = soundList[0].id;
+                selectSoundCard(selectedSoundId);
+              }
+            })
+            .catch(settingError => {
+              console.error('Get user setting error:', settingError);
+              // 失败后仍默认选中第一个
+              if (soundList.length > 0) {
+                selectedSoundId = soundList[0].id;
+                selectSoundCard(selectedSoundId);
+              }
+            });
+        })
+        .catch(error => {
+          // 加载失败处理（显示错误提示）
+          loadingEl.remove();
+          soundListEl.innerHTML = `
+            <div class="col-span-full flex justify-center items-center py-12">
+              <p class="text-red-500 text-center">Failed to load voice list: ${error.message}</p>
+            </div>
+          `;
+          console.error('Fetch sound list error:', error);
+        });
+    }
+
+    /**
+     * 修复：保存声音设置（确保id类型一致）
+     */
+    function saveSoundSetting() {
+      if (!selectedSoundId) {
+        alert('Please select a voice first');
+        return;
+      }
+
+      fetch('/api/save-sound-setting', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: 'default_user', // 实际项目替换为真实用户ID
+          soundId: selectedSoundId // 字符串类型的id，与后端一致
+        })
+      })
+        .then(response => {
+          if (!response.ok) throw new Error('Save request failed');
+          return response.json();
+        })
+        .then(data => {
+          if (data.success) {
+            showSuccessToast();
+          } else {
+            alert('Save failed: ' + (data.error || 'Unknown error'));
+          }
+        })
+        .catch(error => {
+          console.error('Save failed:', error);
+          alert('Save failed, please try again later');
+        });
+    }
+
+    // 以下函数保持不变（createSoundCard、toggleAudioPlayback、updatePlayButtonIcon、selectSoundCard、showSuccessToast）
+    function createSoundCard(sound) {
+      const card = document.createElement('div');
+      card.className = 'sound-card bg-white rounded-xl shadow-card hover:shadow-card-hover p-6 transition-all-300 border border-neutral-200 hover:border-primary/30';
+      card.dataset.soundId = sound.id; // 字符串id正常使用
+      
+      const audio = document.createElement('audio');
+      audio.src = sound.url;
+      audio.preload = 'none';
+      audioElements[sound.id] = audio;
+      
+      audio.onended = () => {
+        if (currentPlayingAudioId === sound.id) {
+          updatePlayButtonIcon(sound.id, 'play');
+          currentPlayingAudioId = null;
+        }
+      };
+      
+      card.innerHTML = `
+        <div class="flex justify-between items-start mb-4">
+          <h3 class="text-lg font-semibold text-neutral-600">${sound.name}</h3>
+          <span class="bg-neutral-100 text-neutral-500 text-xs px-2 py-1 rounded-full">${sound.duration}</span>
+        </div>
+        <p class="text-neutral-500 text-sm mb-6 line-clamp-2">${sound.description}</p>
+        <div class="flex justify-between items-center">
+          <div class="play-btn-container">
+            <button class="playBtn flex items-center space-x-2 text-primary hover:text-secondary transition-all-300" data-sound-id="${sound.id}">
+              <i class="fa fa-play-circle-o text-xl"></i>
+              <span>Preview</span>
+            </button>
+          </div>
+          <div class="selectIndicator hidden">
+            <i class="fa fa-check-circle text-primary"></i>
+            <span class="ml-1 text-primary text-sm">Selected</span>
+          </div>
+        </div>
+      `;
+      
+      const playBtn = card.querySelector('.playBtn');
+      playBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleAudioPlayback(sound.id);
+      });
+      
+      card.addEventListener('click', () => {
+        selectSoundCard(sound.id);
+      });
+      
+      return card;
+    }
+
+    function toggleAudioPlayback(soundId) {
+      const audio = audioElements[soundId];
+      
+      if (currentPlayingAudioId === soundId) {
+        audio.pause();
+        updatePlayButtonIcon(soundId, 'play');
+        currentPlayingAudioId = null;
+        return;
+      }
+      
+      if (currentPlayingAudioId !== null && currentPlayingAudioId !== soundId) {
+        const currentAudio = audioElements[currentPlayingAudioId];
+        if (currentAudio && !currentAudio.paused) {
+          currentAudio.pause();
+          updatePlayButtonIcon(currentPlayingAudioId, 'play');
+        }
+      }
+      
+      audio.play().then(() => {
+        updatePlayButtonIcon(soundId, 'pause');
+        currentPlayingAudioId = soundId;
+      }).catch(error => {
+        console.error('Playback failed:', error);
+        alert('Audio playback failed, please try again later');
+      });
+    }
+
+    function updatePlayButtonIcon(soundId, state) {
+      const playBtn = document.querySelector(`.playBtn[data-sound-id="${soundId}"]`);
+      if (playBtn) {
+        const iconEl = playBtn.querySelector('i');
+        if (state === 'play') {
+          iconEl.className = 'fa fa-play-circle-o text-xl';
+          playBtn.querySelector('span').textContent = 'Preview';
+        } else {
+          iconEl.className = 'fa fa-pause-circle-o text-xl';
+          playBtn.querySelector('span').textContent = 'Pause';
+        }
+      }
+    }
+
+    function selectSoundCard(soundId) {
+      document.querySelectorAll('.sound-card').forEach(card => {
+        card.classList.remove('sound-card-active');
+        const indicator = card.querySelector('.selectIndicator');
+        if (indicator) indicator.classList.add('hidden');
+      });
+      
+      const selectedCard = document.querySelector(`.sound-card[data-sound-id="${soundId}"]`);
+      if (selectedCard) {
+        selectedCard.classList.add('sound-card-active');
+        const indicator = selectedCard.querySelector('.selectIndicator');
+        if (indicator) indicator.classList.remove('hidden');
+        selectedSoundId = soundId;
+        
+        selectedCard.classList.add('pulse-animation');
+        setTimeout(() => {
+          selectedCard.classList.remove('pulse-animation');
+        }, 1500);
+      }
+    }
+
+    function showSuccessToast() {
+      const toast = document.getElementById('successToast');
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+
+    window.addEventListener('beforeunload', () => {
+      Object.values(audioElements).forEach(audio => {
+        if (!audio.paused) audio.pause();
+      });
+    });
+  </script>
+</body>
+</html>
